@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Tic-Tac-Toe (5x5)</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #game-board { display: grid; grid-template-columns: repeat(5, 100px); grid-gap: 5px; margin: 50px auto; }
+        .cell { width: 100px; height: 100px; font-size: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid #333; }
+        #status { margin-top: 20px; }
+        #play-again { display: none; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Tic-Tac-Toe (5x5)</h1>
+    <div id="game-board"></div>
+    <div id="status"></div>
+    <button id="play-again">Play Again</button>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        var socket = io();
+        var player = '';
+        var cells = [];
+        var gameOver = false;
+        var gameBoard = document.getElementById('game-board');
+        var statusDiv = document.getElementById('status');
+        var playAgainButton = document.getElementById('play-again');
+
+        // Tạo bàn cờ 5x5
+        for (let i = 0; i < 25; i++) {
+            let cell = document.createElement('div');
+            cell.classList.add('cell');
+            cell.addEventListener('click', () => {
+                if (!gameOver && cell.textContent === '' && player) {
+                    socket.emit('make-move', i);
+                }
+            });
+            gameBoard.appendChild(cell);
+            cells.push(cell);
+        }
+
+        socket.on('player-assigned', (assignedPlayer) => {
+            player = assignedPlayer;
+            statusDiv.textContent = `You are player: ${player}`;
+        });
+
+        socket.on('room-full', () => {
+            statusDiv.textContent = 'The room is full. Please try again later.';
+        });
+
+        socket.on('move-made', ({ index, player }) => {
+            cells[index].textContent = player;
+        });
+
+        socket.on('game-over', ({ winner }) => {
+            gameOver = true;
+            if (winner) {
+                statusDiv.textContent = `Player ${winner} wins!`;
+            } else {
+                statusDiv.textContent = 'It\'s a draw!';
+            }
+            playAgainButton.style.display = 'block'; // Hiển thị nút "Play Again" khi ván kết thúc
+        });
+
+        // Đặt lại trò chơi sau khi nhận được sự kiện từ server
+        socket.on('reset-game', () => {
+            cells.forEach(cell => cell.textContent = ''); // Xóa nội dung các ô cờ
+            statusDiv.textContent = '';                   // Xóa thông báo trạng thái
+            gameOver = false;                             // Cho phép tiếp tục chơi
+            playAgainButton.style.display = 'none';       // Ẩn nút "Play Again" sau khi đặt lại trò chơi
+        });
+
+        playAgainButton.addEventListener('click', () => {
+            socket.emit('play-again');  // Gửi sự kiện "play-again" đến server
+        });
+    </script>
+</body>
+</html>
